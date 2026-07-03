@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AWS Cloud Backup Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 border-b border-slate-700 pb-4">
+            <h1 class="text-3xl font-bold">Cloud Infrastructure Backup Hub</h1>
+            <p class="text-slate-400 mt-1">Local Environment Simulation Mode</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-800 p-6 rounded-lg border border-slate-700 col-span-2">
+                <h2 class="text-xl font-semibold mb-4">Manual Control System</h2>
+                <p class="text-slate-400 mb-6 text-sm">Force an instant, synchronous backup package generation directly into AWS S3 storage.</p>
+                <button id="btnBackup" onclick="triggerManualBackup()" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-medium transition active:scale-95 cursor-pointer">
+                    Trigger Immediate Backup Now
+                </button>
+                <div id="statusMessage" class="mt-4 text-sm font-medium hidden"></div>
+            </div>
+            
+            <div class="bg-slate-800 p-6 rounded-lg border border-slate-700">
+                <h2 class="text-xl font-semibold mb-2">Automated Rules</h2>
+                <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-4">
+                    Simulation Mode Active
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed">EventBridge Scheduler simulation triggers are currently managed by the local runtime architecture wrapper.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-700 bg-slate-800/50">
+                <h2 class="text-xl font-semibold">Execution & Sync Log History</h2>
+            </div>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                        <th class="py-3 px-6">ID</th>
+                        <th class="py-3 px-6">Filename</th>
+                        <th class="py-3 px-6">Origin Type</th>
+                        <th class="py-3 px-6">Sync Status</th>
+                        <th class="py-3 px-6">Timestamp</th>
+                        <th class="py-3 px-6 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody" class="divide-y divide-slate-700 text-sm">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        async function fetchHistory() {
+            try {
+                const res = await fetch('/api/backups');
+                const data = await res.json();
+                const tbody = document.getElementById('historyTableBody');
+                tbody.innerHTML = '';
+                
+                data.forEach(row => {
+                    const dateStr = new Date(row.created_at).toLocaleString();
+                    const statusClass = row.status === 'success' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20';
+                    
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-slate-700/30 transition';
+                    tr.innerHTML = `
+                        <td class="py-4 px-6 font-mono text-slate-400">${row.id}</td>
+                        <td class="py-4 px-6 font-medium">${row.filename}</td>
+                        <td class="py-4 px-6 capitalize">${row.execution_type}</td>
+                        <td class="py-4 px-6"><span class="px-2 py-0.5 text-xs rounded-full border ${statusClass}">${row.status}</span></td>
+                        <td class="py-4 px-6 text-slate-400">${dateStr}</td>
+                        <td class="py-4 px-6 text-right">
+                            <button onclick="downloadBackup(${row.id})" class="text-blue-400 hover:text-blue-300 font-medium cursor-pointer">Download</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) { console.error("Error building table logs:", err); }
+        }
+
+        async function triggerManualBackup() {
+            const btn = document.getElementById('btnBackup');
+            const status = document.getElementById('statusMessage');
+            btn.disabled = true;
+            btn.innerText = "Processing Lambda Execution...";
+            status.className = "mt-4 text-sm font-medium text-blue-400";
+            status.innerText = "Invoking worker execution pipeline across infrastructure...";
+            status.classList.remove('hidden');
+
+            try {
+                const res = await fetch('/api/backups', { method: 'POST' });
+                if (res.ok) {
+                    status.className = "mt-4 text-sm font-medium text-green-400";
+                    status.innerText = "Backup run completed successfully!";
+                    await fetchHistory();
+                } else { throw new Error(); }
+            } catch (err) {
+                status.className = "mt-4 text-sm font-medium text-red-400";
+                status.innerText = "Error encountered during operation execution cycle.";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Trigger Immediate Backup Now";
+            }
+        }
+
+        async function downloadBackup(id) {
+            try {
+                const res = await fetch(`/api/backups/${id}/download`, { method: 'POST' });
+                const data = await res.json();
+                if (data.downloadUrl) { window.open(data.downloadUrl, '_blank'); }
+            } catch (err) { console.error(err); }
+        }
+
+        fetchHistory();
+        setInterval(fetchHistory, 10000);
+    </script>
+</body>
+</html>
