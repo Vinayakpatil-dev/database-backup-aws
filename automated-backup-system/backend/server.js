@@ -47,4 +47,24 @@ app.post('/api/backups/:id/download', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+// Simulate an automated EventBridge background rule running every 5 minutes
+setInterval(() => {
+    console.log("⏰ Automated EventBridge trigger received...");
+    
+    const timestamp = new Date().toISOString().replace(/[-:T.]/g, "").split('Z')[0];
+    const autoFilename = `backup_${timestamp}.zip`;
+    
+    const autoRecord = {
+        id: mockDatabaseLog.length + 1,
+        filename: autoFilename,
+        s3_uri: `s3://sandbox-bucket-demo/scheduled/${autoFilename}`,
+        execution_type: "scheduled", // Marks it as automated!
+        status: "success",
+        error_message: null,
+        created_at: new Date()
+    };
+    
+    mockDatabaseLog.push(autoRecord);
+    console.log(`✅ Automated log recorded: ${autoFilename}`);
+}, 300000); // 300000 ms = Exactly 5 minutes
 app.listen(PORT, () => console.log(`🚀 Local development engine alive on http://localhost:${PORT}`));
